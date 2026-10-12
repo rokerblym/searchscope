@@ -121,4 +121,20 @@ commercial employment, or independent mastery from generated code.
 
 The original [validation report](validation-report.md) retains the initial
 79/47 evidence. The [publication report](publication-report.md) records earlier
-remote CI outcomes; the new combined-image job requires its own observed run.
+remote CI outcomes; the new hosting workflow's observed result is recorded below.
+
+## Public source verification for this preparation
+
+Hosting preparation was pushed as a fast-forward to `main` at
+[`81b1b84e005b0b11290399d8bff8586593ba77c0`](https://github.com/rokerblym/searchscope/commit/81b1b84e005b0b11290399d8bff8586593ba77c0).
+The anonymous repository page and commit archive both returned HTTP 200.
+All **158 file blobs** matched the reviewed Git objects; all **eight executable
+file modes** were preserved, and remote `main` matched the commit. This verifies
+public source publication, not application hosting.
+
+[GitHub Actions run 38290564685](https://github.com/rokerblym/searchscope/actions/runs/38290564685)
+for that exact full commit **completed successfully**. The public run page
+showed all five jobs successful: backend, frontend, combined hosted-image,
+and separate backend/frontend production images. Detailed logs require sign-in;
+the 103/47 test counts above come from executed local checks. Successful image
+builds do not mean images were published or hosting resources were deployed.

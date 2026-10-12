@@ -220,6 +220,11 @@ for current workflow status and the [publication report](docs/publication-report
 for recorded verification. Local test counts come from executed checks, not
 from CI YAML.
 
+The [five-job hosting preparation run](https://github.com/rokerblym/searchscope/actions/runs/38290564685)
+passed for commit `81b1b84`, covering backend/frontend checks and all three
+production image builds. Its public status was observed; image builds alone do
+not deploy the application.
+
 For host development in **macOS Terminal**, use Ruby 3.4.11 with Bundler and
 Node.js 24. Start MongoDB from the repository root with `./bin/start mongodb`,
 then run `BUNDLE_FROZEN=true bundle install` and `bin/server` in `backend/`;
@@ -292,7 +297,7 @@ replicas require shared or edge rate limits and a reviewed trusted-proxy policy.
 Daily provider-attempt budgets are shared through atomic MongoDB counters.
 
 Future work should prioritize distributed request limits, measured budget tuning,
-account lifecycle, larger-data performance tests, and an approved deployment.
+account lifecycle, larger-data performance tests, and a verified public deployment.
 
 ## Captured application
 

@@ -18,7 +18,7 @@ SearchScope — Search Intelligence & API Analytics Platform | Personal project
 Repository: https://github.com/rokerblym/searchscope
 - Rails/MongoDB API and responsive React/TypeScript interface with authentication, per-user search history, pagination, deletion, result comparison, and request analytics.
 - Server-side SerpApi adapter with HTTPS verification, timeouts, bounded retries, sanitized errors, and mocked provider tests; clearly labeled synthetic demo mode.
-- Local tests: 103 RSpec examples and 47 Vitest tests passing; HTTPS browser checks and production Docker build verified. A prior published revision passed four GitHub Actions jobs.
+- Local tests: 103 RSpec examples and 47 Vitest tests passing; HTTPS browser checks and production Docker build verified. GitHub Actions passed all five jobs, including production image builds.
 
 AqZhol / SafeRoute — Main personal project: safe urban routing application
 - Worked with Python, FastAPI, mapping API integrations, backend endpoints, and route calculations to support safer urban route exploration.

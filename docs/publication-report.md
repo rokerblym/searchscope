@@ -1,5 +1,9 @@
 # Verified GitHub publication
 
+The later free-hosting preparation is published and verified separately in
+[hosting-validation.md](hosting-validation.md), including its successful
+five-job GitHub Actions run. This report retains the initial release evidence.
+
 Published with Eldar Smagulov's explicit authorization on **2026-10-12**.
 
 - Repository: <https://github.com/rokerblym/searchscope>
