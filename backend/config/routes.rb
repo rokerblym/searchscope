@@ -14,4 +14,8 @@ Rails.application.routes.draw do
       get "monitoring", to: "monitoring#show"
     end
   end
+
+  # Keep last: this read-only fallback must never replace valid API endpoints.
+  match "/api", to: "api/not_found#show", via: :all
+  match "/api/*unmatched_path", to: "api/not_found#show", via: :all
 end

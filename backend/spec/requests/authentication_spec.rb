@@ -19,6 +19,28 @@ RSpec.describe "Authentication", type: :request do
     expect(User.count).to eq(0)
   end
 
+  it "rejects a foreign origin despite a valid session and CSRF token before validating credentials" do
+    token = session_token
+    post "/api/v1/auth/register", params: {}, as: :json,
+                                  headers: { "X-CSRF-Token" => token, "Origin" => "https://foreign.example" }
+
+    expect(response).to have_http_status(:forbidden)
+    expect(json_body.fetch("error").fetch("code")).to eq("invalid_csrf_token")
+    expect(User.count).to eq(0)
+  end
+
+  it "accepts a same-origin request with its valid session and CSRF token" do
+    token = session_token
+    origin = request.base_url
+    credentials = { email: "eldar@example.test", password: RequestHelpers::TEST_PASSWORD }
+    post "/api/v1/auth/register", params: credentials, as: :json,
+                                  headers: { "X-CSRF-Token" => token, "Origin" => origin }
+
+    expect(response).to have_http_status(:created)
+    expect(json_body.fetch("user").fetch("email")).to eq("eldar@example.test")
+    expect(User.count).to eq(1)
+  end
+
   it "registers an account, establishes a session and never serializes a password" do
     json_write(:post, "/api/v1/auth/register", { email: "ELDAR@example.test", password: RequestHelpers::TEST_PASSWORD })
 

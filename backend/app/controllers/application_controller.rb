@@ -4,6 +4,8 @@ class ApplicationController < ActionController::API
   include ActionController::Cookies
   include ActionController::RequestForgeryProtection
 
+  self.forgery_protection_origin_check = true
+
   before_action :authenticate_user!
   protect_from_forgery with: :exception
 
