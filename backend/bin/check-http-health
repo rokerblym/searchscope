@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "net/http"
+require_relative "../lib/search_scope/production_hosts"
+
+port = Integer(ENV.fetch("PORT", "3000"))
+uri = URI("http://127.0.0.1:#{port}/api/v1/health")
+request = Net::HTTP::Get.new(uri)
+request["Host"] = SearchScope::ProductionHosts.call(ENV).first
+request["X-Forwarded-Proto"] = "https"
+
+response = Net::HTTP.start(uri.host, uri.port, open_timeout: 2, read_timeout: 2) do |http|
+  http.request(request)
+end
+exit(response.code == "200" ? 0 : 1)

@@ -42,5 +42,5 @@ RUN mkdir -p tmp/pids log && chown -R searchscope:searchscope tmp log
 USER searchscope:searchscope
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD ruby -rnet/http -e 'uri=URI("http://127.0.0.1:3000/api/v1/health"); request=Net::HTTP::Get.new(uri); request["Host"]=ENV.fetch("ALLOWED_HOSTS").split(",").first.strip; request["X-Forwarded-Proto"]="https"; exit(Net::HTTP.start(uri.host, uri.port) { |http| http.request(request) }.code == "200" ? 0 : 1)'
+    CMD ["bin/check-http-health"]
 CMD ["bin/server"]

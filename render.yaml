@@ -1,0 +1,28 @@
+# No database, disk, worker, cron, paid API key, or paid instance is provisioned.
+# Confirm the provider dashboard still offers this plan at $0 before applying.
+services:
+  - type: web
+    name: searchscope
+    runtime: docker
+    plan: free
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: SECRET_KEY_BASE
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
+      - key: SEARCH_PROVIDER
+        value: demo
+      - key: SERVE_FRONTEND
+        value: "true"
+      - key: RAILS_ASSUME_SSL
+        value: "true"
+      - key: PORT
+        value: "10000"
+      - key: RAILS_MAX_THREADS
+        value: "2"
+      - key: SEARCH_RETENTION_DAYS
+        value: "30"

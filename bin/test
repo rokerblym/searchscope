@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 ./bin/compose up -d --wait mongodb
 ./bin/compose run --rm --no-deps \
   -e RAILS_ENV=test \
+  -e SERVE_FRONTEND=true \
   -e MONGODB_URI=mongodb://mongodb:27017/searchscope_test \
   backend bundle exec rspec
 ./bin/compose run --rm --no-deps \
