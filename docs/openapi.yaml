@@ -1,0 +1,591 @@
+openapi: 3.1.0
+info:
+  title: SearchScope API
+  version: 0.1.0
+  description: |
+    Authenticated search snapshots, comparison, and analytics. All user data is
+    restricted to the current account and unexpired records. Results are live
+    only when SEARCH_PROVIDER=serpapi; SEARCH_PROVIDER=demo is explicitly synthetic.
+    GET /session first to receive an anonymous session cookie and csrf_token.
+    Send the cookie and X-CSRF-Token on every mutation, including login/register.
+    Replace the CSRF token with the value returned after login/register/logout.
+    Ordinary automated tests mock SerpApi and make no paid provider requests.
+servers:
+  - url: /api/v1
+    description: Same-origin API through the frontend proxy
+security:
+  - cookieSession: []
+tags:
+  - name: Health
+  - name: Authentication
+  - name: Searches
+  - name: Comparison
+  - name: Analytics
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Process liveness without checking MongoDB or SerpApi
+      security: []
+      responses:
+        '200':
+          description: The Rails application can serve a request
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, service, version]
+                properties:
+                  status: {type: string, const: ok}
+                  service: {type: string, const: searchscope}
+                  version: {type: string, const: 0.1.0}
+  /session:
+    get:
+      tags: [Authentication]
+      operationId: getSession
+      summary: Bootstrap CSRF protection and inspect the current session
+      security: []
+      responses:
+        '200':
+          description: Current session; sets an HttpOnly cookie when needed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [authenticated, user, csrf_token]
+                properties:
+                  authenticated: {type: boolean}
+                  user:
+                    oneOf:
+                      - {$ref: '#/components/schemas/User'}
+                      - {type: 'null'}
+                  csrf_token: {type: string}
+              example:
+                authenticated: false
+                user: null
+                csrf_token: '<token returned by this instance>'
+        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
+  /auth/register:
+    post:
+      tags: [Authentication]
+      operationId: register
+      summary: Create a personal account and rotate the session
+      security:
+        - cookieSession: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Credentials'}
+      responses:
+        '201':
+          description: Account created and authenticated cookie established
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthenticatedSession'}
+        '403': {$ref: '#/components/responses/InvalidCsrf'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
+  /auth/login:
+    post:
+      tags: [Authentication]
+      operationId: login
+      summary: Authenticate with email and password and rotate the session
+      security:
+        - cookieSession: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Credentials'}
+      responses:
+        '200':
+          description: Authenticated cookie established
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthenticatedSession'}
+        '401':
+          description: Email or password was incorrect
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+              example:
+                error: {code: invalid_credentials, message: 'Email or password is incorrect.'}
+        '403': {$ref: '#/components/responses/InvalidCsrf'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
+  /auth/logout:
+    delete:
+      tags: [Authentication]
+      operationId: logout
+      summary: Invalidate this user's existing sessions and reset the current cookie
+      security:
+        - cookieSession: []
+          csrfToken: []
+      responses:
+        '200':
+          description: Logged out; use the returned token for subsequent anonymous mutations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [csrf_token]
+                properties:
+                  csrf_token: {type: string}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/InvalidCsrf'}
+        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
+  /searches:
+    post:
+      tags: [Searches]
+      operationId: createSearch
+      summary: Execute and persist one search snapshot
+      description: |
+        The configured server provider is used. SerpApi mode may consume paid
+        credits and requires a server-side key. Timeouts and HTTP errors are not
+        automatically retried. A shared MongoDB budget reserves attempts before
+        live I/O: 20 per account and 200 globally per UTC day by default. Failures
+        consume reservations; they are never refunded. Demo searches bypass this
+        budget. Exhaustion returns 429 provider_budget_exceeded without provider
+        I/O, with a saved failed search. Connection/retry/download has a 30-second
+        deadline and a streamed 2 MiB response cap. A failed provider attempt is persisted and returned
+        in the search property alongside a safe error. Do not automatically retry
+        this endpoint: it has no idempotency key and may create another billed call.
+      security:
+        - cookieSession: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query, engine]
+              properties:
+                query: {type: string, minLength: 1, maxLength: 200, description: Trimmed before validation; whitespace-only queries are rejected}
+                engine: {$ref: '#/components/schemas/Engine'}
+            example: {query: 'Ruby API engineering', engine: google}
+      responses:
+        '201':
+          description: Successful persisted search snapshot
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Search'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/InvalidCsrf'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '502': {$ref: '#/components/responses/ProviderFailure'}
+        '503':
+          description: Provider configuration missing or database unavailable
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+              example:
+                error: {code: provider_not_configured, message: 'The search provider is not configured.'}
+        '504':
+          description: Provider timed out; the request is not retried
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+              example:
+                error: {code: provider_timeout, message: 'The search provider timed out.'}
+    get:
+      tags: [Searches]
+      operationId: listSearches
+      summary: List this account's unexpired search history
+      parameters:
+        - name: page
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 1000, default: 1}
+        - name: per_page
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+        - name: status
+          in: query
+          schema: {type: string, enum: [pending, succeeded, failed]}
+        - name: engine
+          in: query
+          schema: {$ref: '#/components/schemas/Engine'}
+        - name: query
+          in: query
+          description: Exact normalized match after lowercasing, trimming, and collapsing whitespace
+          schema: {type: string, maxLength: 200}
+      responses:
+        '200':
+          description: Newest first, with stable ID ordering for equal timestamps
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/Search'}
+                  pagination: {$ref: '#/components/schemas/Pagination'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
+  /searches/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, pattern: '^[0-9a-fA-F]{24}$'}
+    get:
+      tags: [Searches]
+      operationId: getSearch
+      summary: Get an owned, unexpired snapshot
+      responses:
+        '200':
+          description: Saved snapshot without a new provider request
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Search'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
+    delete:
+      tags: [Searches]
+      operationId: deleteSearch
+      summary: Permanently remove an owned, unexpired snapshot
+      security:
+        - cookieSession: []
+          csrfToken: []
+      responses:
+        '204': {description: Deleted; no response body}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/InvalidCsrf'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
+  /comparisons:
+    post:
+      tags: [Comparison]
+      operationId: compareSearches
+      summary: Compare two owned, successful snapshots without provider calls
+      description: |
+        Canonical URL matching strips fragments and www, lowercases the host,
+        and normalizes an empty path to /. Scheme, other paths, and query strings
+        remain significant. Duplicate canonical URLs are compared once. Null
+        positions are preserved. This is descriptive comparison, not a claim of
+        statistical significance or comprehensive search-engine coverage.
+      security:
+        - cookieSession: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [left_search_id, right_search_id]
+              properties:
+                left_search_id: {type: string}
+                right_search_id: {type: string}
+      responses:
+        '200':
+          description: Snapshot details and URL/domain comparison
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [left, right, comparison]
+                properties:
+                  left: {$ref: '#/components/schemas/Search'}
+                  right: {$ref: '#/components/schemas/Search'}
+                  comparison: {$ref: '#/components/schemas/Comparison'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/InvalidCsrf'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
+  /analytics:
+    get:
+      tags: [Analytics]
+      operationId: getAnalytics
+      summary: Aggregate this account's unexpired application records
+      description: |
+        Rates are percentages of completed (successful or failed) saved attempts
+        and are null when there are no completed attempts. Pending attempts are
+        included in total_searches but excluded from the rate denominator.
+        Average duration uses records with a measured duration. Top domains count
+        occurrences in successful result snapshots. Provider usage counts attempts.
+        Demo records are included with provider=demo and are synthetic, not live
+        provider usage. Deleting or expiring history changes these aggregates.
+      responses:
+        '200':
+          description: Real persisted application metrics; zero counts and null rates/duration for an empty account
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Analytics'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
+  /monitoring:
+    get:
+      tags: [Health]
+      operationId: getMonitoring
+      summary: Database ping and safe server configuration for authenticated users
+      description: Provider configuration presence does not verify live SerpApi credentials or quota
+      responses:
+        '200':
+          description: MongoDB ping succeeded
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Monitoring'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '503':
+          description: Database ping failed, or database unavailable during authentication
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - {$ref: '#/components/schemas/Monitoring'}
+                  - {$ref: '#/components/schemas/ErrorResponse'}
+components:
+  securitySchemes:
+    cookieSession:
+      type: apiKey
+      in: cookie
+      name: _searchscope_session
+      description: Rails encrypted HttpOnly session cookie; anonymous bootstrap cookie before authentication; Secure in production, SameSite=Lax, 24-hour expiry
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: Token returned by session, registration, login, or logout; must match the same cookie session
+  schemas:
+    Engine: {type: string, enum: [google, bing]}
+    User:
+      type: object
+      required: [id, email]
+      properties:
+        id: {type: string}
+        email: {type: string, format: email}
+    Credentials:
+      type: object
+      required: [email, password]
+      properties:
+        email: {type: string, format: email, maxLength: 254, description: At most 254 UTF-8 bytes}
+        password:
+          type: string
+          maxLength: 72
+          writeOnly: true
+          description: Registration requires at least 10 characters; login validates the supplied password without a minimum-length schema restriction; bcrypt permits at most 72 UTF-8 bytes, which can be fewer than 72 characters
+    AuthenticatedSession:
+      type: object
+      required: [user, csrf_token]
+      properties:
+        user: {$ref: '#/components/schemas/User'}
+        csrf_token: {type: string}
+    Result:
+      type: object
+      required: [title, url, snippet, position, domain]
+      properties:
+        title: {type: string, maxLength: 2000}
+        url: {type: string, format: uri, maxLength: 4096, description: Only absolute HTTP(S) links without embedded credentials}
+        snippet: {type: [string, 'null'], maxLength: 2000}
+        position: {type: [integer, 'null'], minimum: 1}
+        domain: {type: string, description: Lowercase host with leading www. removed}
+    SearchMetadata:
+      type: object
+      properties:
+        provider_search_id: {type: [string, 'null'], maxLength: 200}
+        total_results: {type: [integer, 'null'], minimum: 0, description: Provider-reported total when supplied; an estimate, not the returned result count}
+        demo: {type: boolean, description: True for synthetic demo snapshots}
+        requested_engine: {$ref: '#/components/schemas/Engine'}
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: {type: string}
+        message: {type: string, description: Safe message without upstream response bodies or credentials}
+        retry_after: {type: integer, minimum: 1, maximum: 300}
+    Search:
+      type: object
+      required: [id, query, engine, provider, status, duration_ms, created_at, results, metadata, error]
+      properties:
+        id: {type: string}
+        query: {type: string, maxLength: 200}
+        engine: {$ref: '#/components/schemas/Engine'}
+        provider: {type: string, enum: [serpapi, demo]}
+        status: {type: string, enum: [pending, succeeded, failed]}
+        duration_ms: {type: [number, 'null'], minimum: 0, description: Server elapsed time including provider execution and initial persistence; not a benchmark}
+        created_at: {type: string, format: date-time}
+        results:
+          type: array
+          maxItems: 100
+          items: {$ref: '#/components/schemas/Result'}
+        metadata: {$ref: '#/components/schemas/SearchMetadata'}
+        error:
+          oneOf:
+            - {$ref: '#/components/schemas/Error'}
+            - {type: 'null'}
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error: {$ref: '#/components/schemas/Error'}
+        search: {$ref: '#/components/schemas/Search'}
+    Pagination:
+      type: object
+      required: [page, per_page, total, total_pages]
+      properties:
+        page: {type: integer, minimum: 1, maximum: 1000}
+        per_page: {type: integer, minimum: 1, maximum: 100}
+        total: {type: integer, minimum: 0}
+        total_pages: {type: integer, minimum: 0}
+    Overlap:
+      type: object
+      required: [url, title, domain, left_position, right_position]
+      properties:
+        url: {type: string, format: uri}
+        title: {type: string}
+        domain: {type: string}
+        left_position: {type: [integer, 'null'], minimum: 1}
+        right_position: {type: [integer, 'null'], minimum: 1}
+    PositionChange:
+      type: object
+      required: [url, domain, left_position, right_position]
+      properties:
+        url: {type: string, format: uri}
+        domain: {type: string}
+        left_position: {type: [integer, 'null'], minimum: 1}
+        right_position: {type: [integer, 'null'], minimum: 1}
+    Comparison:
+      type: object
+      required: [overlapping_results, left_unique_results, right_unique_results, overlapping_domains, left_unique_domains, right_unique_domains, position_changes, left_result_count, right_result_count, left_total_results, right_total_results]
+      properties:
+        overlapping_results:
+          type: array
+          items: {$ref: '#/components/schemas/Overlap'}
+        left_unique_results:
+          type: array
+          items: {$ref: '#/components/schemas/Result'}
+        right_unique_results:
+          type: array
+          items: {$ref: '#/components/schemas/Result'}
+        overlapping_domains: {type: array, items: {type: string}}
+        left_unique_domains: {type: array, items: {type: string}}
+        right_unique_domains: {type: array, items: {type: string}}
+        position_changes:
+          type: array
+          items: {$ref: '#/components/schemas/PositionChange'}
+        left_result_count: {type: integer, minimum: 0}
+        right_result_count: {type: integer, minimum: 0}
+        left_total_results: {type: [integer, 'null'], minimum: 0}
+        right_total_results: {type: [integer, 'null'], minimum: 0}
+    Analytics:
+      type: object
+      required: [total_searches, successful_searches, failed_searches, success_rate, error_rate, average_duration_ms, top_domains, provider_usage, recent_errors]
+      properties:
+        total_searches: {type: integer, minimum: 0}
+        successful_searches: {type: integer, minimum: 0}
+        failed_searches: {type: integer, minimum: 0}
+        success_rate: {type: [number, 'null'], minimum: 0, maximum: 100}
+        error_rate: {type: [number, 'null'], minimum: 0, maximum: 100}
+        average_duration_ms: {type: [number, 'null'], minimum: 0}
+        top_domains:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            required: [domain, count]
+            properties:
+              domain: {type: string}
+              count: {type: integer, minimum: 1}
+        provider_usage:
+          type: array
+          items:
+            type: object
+            required: [provider, count]
+            properties:
+              provider: {type: string, enum: [serpapi, demo]}
+              count: {type: integer, minimum: 1}
+        recent_errors:
+          type: array
+          maxItems: 10
+          items: {$ref: '#/components/schemas/Search'}
+    Monitoring:
+      type: object
+      required: [api_status, database_status, provider, provider_configured, retention_days, allowed_engines, limits]
+      properties:
+        api_status: {type: string, const: ok}
+        database_status: {type: string, enum: [ok, unavailable]}
+        provider: {type: string}
+        provider_configured: {type: boolean}
+        retention_days: {type: integer, minimum: 1, maximum: 365}
+        allowed_engines:
+          type: array
+          items: {$ref: '#/components/schemas/Engine'}
+        limits:
+          type: object
+          required: [searches_per_minute]
+          properties:
+            searches_per_minute: {type: integer, const: 10, description: Per authenticated account per process; anonymous requests fall back to client IP; counts are not shared between replicas}
+            provider_attempts_per_user_per_day: {type: integer, minimum: 1, maximum: 10000, default: 20, description: Shared MongoDB reservation cap per account per UTC day; includes failed attempts}
+            provider_attempts_globally_per_day: {type: integer, minimum: 1, maximum: 10000, default: 200, description: Shared MongoDB reservation cap across accounts per UTC day; includes failed attempts}
+  responses:
+    Unauthorized:
+      description: Authentication is required
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+          example:
+            error: {code: unauthorized, message: 'Log in to access this resource.'}
+    InvalidCsrf:
+      description: CSRF token absent, invalid, or origin mismatched
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+          example:
+            error: {code: invalid_csrf_token, message: 'Refresh your session and try again.'}
+    ValidationFailed:
+      description: Invalid input or unsupported pagination/filter
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+          example:
+            error: {code: validation_failed, message: 'Query must contain 1–200 characters and engine must be google or bing.'}
+    NotFound:
+      description: Invalid ID, missing/expired snapshot, or snapshot owned by another account
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+          example:
+            error: {code: not_found, message: 'The requested resource was not found.'}
+    DatabaseUnavailable:
+      description: Database temporarily unavailable; details and connection strings are not exposed
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+          example:
+            error: {code: database_unavailable, message: 'The database is temporarily unavailable.'}
+    RateLimited:
+      description: Local per-process limit (authentication per client IP, searches per session user with anonymous IP fallback), shared daily provider-attempt budget, or upstream quota/rate limit; do not automatically retry
+      headers:
+        Retry-After:
+          description: Seconds when supplied; upstream values are bounded to 1–300
+          schema: {type: integer, minimum: 1, maximum: 300}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+          examples:
+            upstream:
+              value:
+                error: {code: provider_rate_limited, message: 'The search provider rate limit was reached. Try again later.'}
+            dailyBudget:
+              value:
+                error: {code: provider_budget_exceeded, message: 'The daily search budget has been reached. Try again tomorrow.'}
+    ProviderFailure:
+      description: Invalid provider credentials, network error, empty/malformed response, or upstream HTTP error; the paid request is not automatically repeated
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+          example:
+            error: {code: provider_authentication_failed, message: 'The search provider rejected its credentials.'}
