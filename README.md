@@ -57,6 +57,8 @@ without validation.
 ```text
 backend/                 Rails API, models, provider adapters, RSpec tests
 frontend/                React client, typed API client, behavioral tests
+Dockerfile               Combined Rails + built React production image
+render.yaml              Free-only hosting candidate; Atlas configured separately
 bin/setup                Frozen dependency installation through Docker builds
 bin/start                Service startup with optional cloud proxy trust
 bin/compose              Compose wrapper for build and runtime trust
@@ -146,7 +148,7 @@ On macOS without these cloud variables the same wrappers use ordinary Compose.
 | `SEARCH_RETENTION_DAYS` | 1–365 days; defaults to 30 |
 | `MONGODB_URI` | Database URI; Compose supplies separate development/test databases; required in production |
 | `SECRET_KEY_BASE` | Required production Rails secret, supplied at runtime |
-| `ALLOWED_HOSTS` | Required production comma-separated hostnames; never a wildcard public allowlist |
+| `ALLOWED_HOSTS` | Production comma-separated approved hostnames; combined Render hosting can use its exact platform hostname when absent |
 | `SERPAPI_USER_DAILY_LIMIT` | Maximum reserved attempts per account per UTC day; default 20 |
 | `SERPAPI_GLOBAL_DAILY_LIMIT` | Maximum reserved attempts across accounts per UTC day; default 200 |
 | `API_PROXY_TARGET` | Development Vite proxy target; Compose uses `http://backend:3000` |
@@ -205,11 +207,14 @@ The vulnerability advisory update needs network access; an unavailable advisory
 source is a limitation of that check, not proof that dependencies are safe.
 
 Recorded commands, observed results, and remaining verification limits are in
-[docs/validation-report.md](docs/validation-report.md).
+[docs/validation-report.md](docs/validation-report.md). The latest
+[hosting checks](docs/hosting-validation.md) cover 103 passing RSpec examples,
+47 passing frontend tests, and a local HTTPS browser run of the combined
+production image. This is local validation; a public deployment remains pending.
 
 GitHub Actions installs frozen dependencies and runs RSpec, MongoDB checks,
 RuboCop, Brakeman, dependency audit, frontend tests/lint/format checks, and the
-frontend build, plus separate production image builds without publishing.
+frontend build, plus separate and combined production image builds without publishing.
 Publication triggered GitHub Actions. See the [Actions page](https://github.com/rokerblym/searchscope/actions)
 for current workflow status and the [publication report](docs/publication-report.md)
 for recorded verification. Local test counts come from executed checks, not
@@ -249,6 +254,21 @@ liveness only. Monitoring reports database readiness and configuration presence,
 not live provider health.
 
 ## Production preparation and limitations
+
+For a complete public portfolio demo, the root Dockerfile serves React and
+the Rails API from one origin, with MongoDB hosted separately. The
+[free-hosting investigation and setup guide](docs/free-deployment.md) includes
+the conditional Render/Atlas path, current source-backed limits, account setup
+steps, and a verification checklist. **No live application URL has been
+verified yet:** hosting accounts, secure database configuration, and confirmation
+of the host's current no-charge terms are required. The repository URL is not
+a running application URL.
+
+`render.yaml` selects `plan: free` and `SEARCH_PROVIDER=demo`; it includes no
+paid disk, worker, database, or API key. Its provider-side validation and
+deployment have not run. Stop if the hosting dashboard requires payment or an
+upgrade. Demo searches remain labelled synthetic; the real SerpApi adapter and
+all existing application features are preserved.
 
 Separate production Dockerfiles run Rails without development/test gems and
 serve built static assets with unprivileged Nginx. Rails enforces TLS and secure
@@ -298,8 +318,9 @@ establish the candidate's independent proficiency.
 
 The source is published at [rokerblym/searchscope](https://github.com/rokerblym/searchscope).
 The [publication report](docs/publication-report.md) records public access,
-file verification, preserved history, and observed CI status. Deployment and
-application submission require separate approval. Application materials remain
+file verification, preserved history, and observed CI status. Free deployment is
+authorized but requires hosting access and verified no-charge terms. Charges
+and application submission require separate approval. Application materials remain
 review drafts; no application email has been sent. Follow the
 [release checklist](docs/release-checklist.md) before deploying or submitting.
 

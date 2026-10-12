@@ -1,5 +1,11 @@
 # Local engineering validation
 
+The initial implementation results below are retained as historical evidence.
+For the later single-service hosting preparation, **103 RSpec examples and
+47 frontend tests passed**, along with local HTTPS production-browser checks.
+See [hosting-validation.md](hosting-validation.md) for commands, fixes, and
+the prerequisites still blocking public deployment.
+
 Validated in the selected Linux cloud workspace on **2026-10-12**. These results
 describe actual command execution against the implemented working tree. They
 do not establish a remote CI pass, a public deployment, independent candidate

@@ -13,12 +13,19 @@ No employment, credentials, usage metrics, or GitHub activity will be invented.
 The initial repository contained only a README and MIT license. The implemented
 application now includes the six-page client and authenticated Rails API,
 MongoDB persistence, provider adapters, and Docker tooling. Final local
-validation executed 79 backend examples and 47 frontend tests, plus browser,
+initial validation executed 79 backend examples and 47 frontend tests, plus browser,
 lint, build, and security checks. Detailed evidence and outstanding checks are
 in [docs/validation-report.md](docs/validation-report.md). Source publication
 and observed GitHub CI results are recorded in
 [docs/publication-report.md](docs/publication-report.md). Paid SerpApi requests
 and external deployment have not been performed.
+
+The free-hosting preparation adds an opt-in combined Rails/React production
+image, a Free Render Blueprint, strict hostname handling, and API Origin-check
+regressions. Latest local checks executed 103 backend examples and 47 frontend
+tests; see [docs/hosting-validation.md](docs/hosting-validation.md). Hosting
+account access and current no-charge terms are still required for a public
+demo. Existing source history, features, and separate Docker images are retained.
 
 Verified environment: Linux x86_64, Docker 28.4.0, Compose 2.40.3, Node.js
 24.19.0, Ruby 3.4.11 and Rails 8.1.4 inside Docker. Rails 8.1 and Mongoid 9.1.1
@@ -72,8 +79,9 @@ normalize heterogeneous results without persisting raw provider responses.
    Ask for missing contact details and distinguish personal projects from work.
 6. **Release preparation:** inspect tracked files for secrets, record exact
    validation outcomes, prepare meaningful local commits with confirmed author
-   identity, and save reusable environment instructions. Obtain approval before
-   pushing, publishing, deploying, sending email, or making paid provider calls.
+   identity, and save reusable environment instructions. Source publication and
+   free deployment are now authorized. Charges, application sending, and paid
+   provider calls require separate approval.
 
 ## Security and data decisions
 

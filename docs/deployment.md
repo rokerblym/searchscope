@@ -1,9 +1,12 @@
 # Local operation and deployment preparation
 
-The repository includes a working-development topology and separate production
-image definitions. These files are deployment preparation. They do not prove a
-public release, remote GitHub Actions run, AWS deployment, or live SerpApi call.
-Consult the project's validation record for checks actually performed.
+The repository includes development, separate production images, and a combined
+Rails/React image for a single hosted service. Public source access and GitHub
+Actions results are recorded in [publication-report.md](publication-report.md).
+No public application deployment, AWS execution, or paid live SerpApi call has
+been verified. Consult [hosting-validation.md](hosting-validation.md) for the
+latest local production checks and [free-deployment.md](free-deployment.md) for
+the conditional free-hosting setup and remaining account/network prerequisites.
 
 ## Development on macOS
 
@@ -83,6 +86,32 @@ workflow has passed on GitHub.
 
 ## Production images
 
+### One hosted Rails/React service
+
+**macOS Terminal or a Linux build host, repository root:**
+
+```sh
+docker build -t searchscope-hosted:local .
+```
+
+The root Dockerfile builds the existing frontend, then copies its assets into
+Rails' public directory. Its unprivileged runtime contains Ruby and production
+gems; it needs only one application service plus managed MongoDB. Hash-based
+navigation keeps every page on the same origin as the API. `SERVE_FRONTEND=true`
+enables static serving and the application's security, cache, and request-body
+middleware. The image defaults to port 10000; both Puma and its health check
+respect `PORT`. The optional `cloud_ca` build secret described below also works
+with this image.
+
+`render.yaml` declares a Free Docker service using synthetic demo searches.
+The manifest has been parsed locally; authenticated Render validation and
+deployment remain pending. Follow the [free setup guide](free-deployment.md)
+and confirm the account's current $0 terms before applying it. Render's exact
+`RENDER_EXTERNAL_HOSTNAME` is used only when frontend hosting is enabled and
+`ALLOWED_HOSTS` is absent. Explicitly empty configuration fails startup.
+
+### Separate Rails and nginx services
+
 **macOS Terminal or a Linux build host, repository root:**
 
 ```sh
@@ -142,7 +171,10 @@ use their own correctly configured trusted CA store.
 | `RAILS_ENV` | `production`; set by the backend production image |
 | `MONGODB_URI` | Authenticated production MongoDB URI with TLS, supplied at runtime |
 | `SECRET_KEY_BASE` | Stable high-entropy secret, unique to this environment, supplied at runtime |
-| `ALLOWED_HOSTS` | Required nonempty comma-separated approved hostnames; avoid broad wildcard entries |
+| `ALLOWED_HOSTS` | Nonempty comma-separated approved hostnames; combined Render hosting can use its exact validated platform hostname when this variable is absent |
+| `SERVE_FRONTEND` | `true` for the combined image; enables static frontend, headers, caching, and bounded input |
+| `RAILS_ASSUME_SSL` | `true` only behind a trusted TLS gateway with a private backend HTTP port |
+| `PORT` | Listener and health-check port; combined image defaults to 10000, separate backend to 3000 |
 | `SERPAPI_USER_DAILY_LIMIT` | 1–10,000 attempted live searches per account per UTC day; default 20 |
 | `SERPAPI_GLOBAL_DAILY_LIMIT` | 1–10,000 attempted live searches globally per UTC day; default 200 |
 | `SEARCH_PROVIDER` | `demo` for no-cost evaluation; `serpapi` only when live calls are intended |
@@ -164,7 +196,9 @@ and are not refunded; demo mode bypasses them.
 
 ## Network and TLS contract
 
-Place both application containers on a private network. Publish only the TLS
+For combined hosting, publish only the platform TLS gateway and keep its Puma
+HTTP listener private. For separate hosting, place both application containers
+on a private network. Publish only the TLS
 gateway, which routes the public hostname to nginx port 8080. The gateway must
 overwrite client-supplied `X-Forwarded-Proto` and forwarded client-IP headers.
 nginx preserves the original `Host` and forwards a trusted HTTPS scheme to
@@ -241,7 +275,9 @@ that environment rather than assuming a local Docker test proves it.
 
 **ChatGPT/Codex:** inspect the working tree for secrets and unrelated changes,
 record exact local checks, review known limitations, and prepare the release.
-**GitHub:** remote CI results must be checked after an approved push; writing a
-workflow is not proof of a passing run. **Browser/deployment platform:** external
-publication, deployment, and paid live verification remain separate actions
-requiring the user's approval. No such action is implied by these instructions.
+**GitHub:** check the actual workflow outcome after each push; writing a workflow
+is not proof of a passing run. The owner has authorized source publication and
+free deployment for this task. **Browser/deployment platform:** confirm the
+no-charge account terms and supply secure hosting/database configuration before
+provisioning. Charges and paid live-provider verification require separate
+approval. Record the real public browser results before adding a live URL.

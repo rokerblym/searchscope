@@ -27,7 +27,7 @@ For a release, record and pin tested image digests before deployment.
 ```mermaid
 flowchart LR
     Browser[React and TypeScript browser application]
-    Proxy[Same-origin proxy: Vite in development; nginx behind TLS in production]
+    Proxy[Same-origin entrypoint: Vite in development; nginx or Rails/static behind production TLS]
     API[Rails API controllers]
     Session[Encrypted cookie session and CSRF protection]
     Runner[SearchRunner]
@@ -52,15 +52,63 @@ flowchart LR
 The production route in the diagram is deployment preparation, not evidence of
 a live deployment. See [deployment.md](deployment.md) for its requirements.
 
+## Production frontend delivery options
+
+The separate-container option uses `frontend/Dockerfile.production` to serve
+React assets from nginx and proxy `/api/` to the Rails service built with
+`backend/Dockerfile.production`. Both application services remain private
+behind a trusted TLS gateway. nginx supplies the frontend/API security headers,
+cache policy, and 16 KiB request-body limit. This topology remains supported.
+
+The root [Dockerfile](../Dockerfile) provides a combined option: Node builds
+React once, and an unprivileged Rails/Puma runtime serves the resulting files
+from `public/` alongside the existing API. It runs no nginx process and stores
+no database inside the application container. Both options require a separate,
+authenticated MongoDB service with TLS. The browser uses the same origin for
+assets, sessions, and API requests, so no cross-origin cookie or CORS setup is
+introduced.
+
+`SERVE_FRONTEND=true` enables an outer Rack policy around static files and API
+responses, plus Puma's 16 KiB upload limit. It retains the security headers of
+the nginx option: same-origin scripts/connections, denied framing, content-type
+protection, no-referrer policy, and restricted browser permissions. Inline
+styles remain allowed for calculated dashboard bar widths. API responses use
+`no-store`; HTML, unversioned files, and missing assets use `no-cache`.
+Successful fingerprinted non-HTML assets under `/assets/` use one-year immutable
+caching. The flag is opt-in; existing API-only operation does not gain this
+hosting policy unless it is explicitly enabled.
+
+The Rack layer reads at most 16 KiB plus one byte before Rails parameter
+parsing and rejects oversized bodies even without a trustworthy length header.
+Puma also applies its server-level limit before the Rack application. Its
+early HTTP errors have Puma's response format and do not pass through the Rack
+JSON/header policy. See [security.md](security.md) for these boundaries.
+
+Navigation uses URL hashes, so serving `/`, `index.html`, and actual built
+files is sufficient. There is no SPA catch-all that turns missing API or asset
+paths into the frontend document. Unknown `/api` paths instead reach a final,
+read-only JSON `404` handler; valid API routes remain ahead of that fallback.
+
+Production normally requires explicit `ALLOWED_HOSTS`. When it is absent and
+frontend hosting is enabled, a validated `RENDER_EXTERNAL_HOSTNAME` supplied
+by Render can provide one exact allowed hostname. Explicit configuration takes
+precedence, and an empty explicit list or missing/invalid fallback fails startup.
+`RAILS_ASSUME_SSL=true` is a separate opt-in for a trusted TLS edge with private
+backend HTTP; it does not add encryption to a directly exposed HTTP service.
+The [Render blueprint](../render.yaml) describes this combined option with demo
+searches and runtime secret bindings. It neither provisions MongoDB nor proves
+that a public service, live provider call, or remote deployment exists.
+
 ## Repository structure
 
 ```text
 backend/
   app/controllers/       HTTP validation, authentication, owned record access
-  app/models/            User and SearchRequest Mongoid documents
+  app/models/            User, SearchRequest, and SearchBudget Mongoid documents
   app/services/          Provider adapters, search execution, comparison, analytics
   app/serializers/       Explicit search response representation
   config/                Routes, MongoDB, sessions, logging, rate limits
+  lib/search_scope/      Opt-in frontend HTTP policy and production host validation
   spec/                  RSpec requests, models, services, provider fixtures
 frontend/
   src/api.ts             Same-origin API client and in-memory CSRF token
@@ -78,6 +126,10 @@ bin/                     Reproducible local setup and verification helpers
 holds that token in memory and sends it as `X-CSRF-Token` for every mutation,
 including registration and login. The browser manages the encrypted Rails
 session cookie; JavaScript cannot read the HttpOnly cookie.
+API controllers explicitly enable Rails' Origin check: a foreign Origin is
+rejected with `403` even when the session cookie and CSRF token are valid.
+Same-origin requests with valid tokens continue to work; requests without an
+Origin header still need a valid token for a defined state-changing endpoint.
 
 Registration and login reset the session before storing the user ID and the
 user's `auth_version`. A session expires after 24 hours. Logout increments the

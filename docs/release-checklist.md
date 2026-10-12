@@ -51,7 +51,7 @@ history. Do not reset, overwrite another repository, or force-push.
 4. Update the validation report only from the observed outcome. Mocked provider
    tests and a homepage connectivity check do not prove live search success.
 
-## Publish and deploy only after owner approval
+## Publish and verify the authorized free deployment
 
 Eldar explicitly authorized this release. The reviewed commits were pushed as
 a fast-forward of the existing `main` branch, and anonymous public requests
@@ -60,11 +60,14 @@ was preserved. Further releases should retain the same secret review and
 verification discipline. Inspect actual GitHub Actions outcomes rather than
 inferring a pass from the workflow file.
 
-Review `docs/deployment.md` before any deployment. Production requires TLS,
+Review `docs/deployment.md` and `docs/free-deployment.md` before deployment. Production requires TLS,
 runtime secrets, authenticated MongoDB, a trusted proxy policy, shared request
-limits where applicable, backups, and monitoring. Deployment is a separate
-approval-gated action; the local production image smoke check is not a public
-deployment or AWS experience.
+limits where applicable, and appropriate data/monitoring expectations. Atlas
+Free has no managed backups. The owner authorized a free public demo; hosting
+credentials, database access, and confirmation of current no-charge terms are
+still missing. Charges require separate approval. Verify the actual public
+HTTPS browser workflows and persistence before publishing its live URL. Local
+production checks do not demonstrate a public deployment or AWS experience.
 
 ## Finish the job application
 

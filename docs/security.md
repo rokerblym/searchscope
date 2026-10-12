@@ -13,9 +13,16 @@ a secret manager. Never paste secrets into issues, screenshots, or application
 materials.
 
 The production backend also requires `MONGODB_URI` and a high-entropy,
-environment-specific `SECRET_KEY_BASE`, plus nonempty comma-separated
-`ALLOWED_HOSTS`. Use the application's actual approved hostnames, not a broad
-wildcard. A MongoDB URI may contain credentials
+environment-specific `SECRET_KEY_BASE`. Normally, nonempty comma-separated
+`ALLOWED_HOSTS` must contain the application's actual approved hostnames.
+With `SERVE_FRONTEND=true` and no `ALLOWED_HOSTS` binding, the backend can instead
+use the trusted platform's `RENDER_EXTERNAL_HOSTNAME`. It validates one DNS
+hostname and rejects wildcards, URLs, host lists, and invalid labels; that exact
+hostname is allowed without granting access to arbitrary subdomains. It never
+derives this fallback from request headers. Explicit `ALLOWED_HOSTS` takes
+precedence, an explicitly empty list is rejected, and missing or invalid host
+configuration stops startup. Custom domains need an explicit approved host list.
+Do not use broad wildcards. A MongoDB URI may contain credentials
 and must be handled as a secret. Do not bake either value into an image or its
 build arguments. Rotate exposed values at the source, then replace runtime
 bindings; merely removing them from a file does not revoke them.
@@ -47,6 +54,12 @@ with insecure transport or disabled certificate verification.
   token in `X-CSRF-Token`; missing or invalid tokens return `403`. Login and
   registration also require CSRF protection. Tokens remain in browser memory,
   rather than local storage.
+- API controllers explicitly enable Rails' `forgery_protection_origin_check`.
+  A foreign Origin returns `403` even with a valid session cookie and CSRF token,
+  before credential validation or data mutation. Valid same-origin registration
+  remains supported. An absent Origin header does not remove the token
+  requirement for defined state-changing endpoints. Correct Origin comparison
+  depends on the trusted edge supplying the public host and HTTPS scheme.
 - Login uses a generic credential error and performs a dummy bcrypt comparison
   for absent users to reduce a simple timing distinction. Registration validates
   email format and uniqueness and uses generic failure messages. These measures
@@ -64,6 +77,12 @@ All history, detail, deletion, comparison, and analytics access starts from the
 current user's association and excludes expired documents. Search IDs supplied
 by a client do not grant ownership. Foreign, absent, malformed, and expired IDs
 are handled without returning another user's data.
+
+Unknown `/api` routes use a final public, read-only handler returning JSON
+`404` with `error.code=not_found`. That handler authenticates no account and
+mutates no data, so it does not require a CSRF token for an unknown write route.
+Defined API endpoints retain their authentication, CSRF, and Origin checks.
+This fallback does not match missing assets or other non-API paths.
 
 The API accepts only `google` and `bing`, validates string inputs, limits a
 trimmed query to 1–200 characters, restricts supported filters, and bounds page
@@ -84,13 +103,51 @@ and database operations are outside it. At most 100 results are normalized, text
 characters, and URLs are limited to 4,096 bytes. Provider-generated HTML is not
 rendered.
 
+## Frontend HTTP policy and request sizes
+
+The separate production topology retains nginx for built React files and
+same-origin API proxying. Its configured security headers, cache rules, and
+16 KiB request-body limit remain applicable. The combined root Docker image
+instead copies built React files into Rails' `public/` directory and enables
+`SERVE_FRONTEND=true`; it runs no nginx process. The frontend remains on the
+API's origin, with the same cookie and CSRF flow.
+
+In combined mode, `SearchScope::FrontendHosting` wraps the Rack stack before
+static file serving or Rails parameter parsing. Application/static responses,
+including application error responses, receive CSP, `nosniff`, frame denial,
+no-referrer policy, and restricted camera/microphone/geolocation permissions.
+CSP restricts scripts and connections to the application's origin; inline
+styles remain allowed for dashboard bar widths. Cache policy is:
+
+- `/api` and its descendants: `no-store`, including authentication errors.
+- HTML, unversioned files, and missing assets: `no-cache` for revalidation.
+- Successful fingerprinted non-HTML `/assets/` responses, including `304`:
+  `public, max-age=31536000, immutable`.
+
+The Rack layer buffers at most 16 KiB plus one byte, rejects oversized declared
+or actual bodies, and supplies an accepted bounded input to Rails. It covers
+missing/understated length headers and fragmented or chunked input. Rack-level
+rejection returns JSON `413` with `payload_too_large`; a rejected HEAD response
+has no body. This limit is measured in bytes, not characters.
+
+Puma also enables its native 16 KiB payload limit when frontend hosting is
+selected, before the Rack application processes an upload. Puma-generated
+`413` responses use the server's response format and bypass the Rack JSON and
+header policy. The same distinction applies to other server/platform errors
+generated before the application. The application limit does not replace
+trusted-edge upload limits, connection deadlines, or denial-of-service controls.
+Without `SERVE_FRONTEND=true`, this additional Rack/Puma hosting policy is not
+enabled; the separate nginx topology supplies its own frontend boundary.
+
 ## Errors, retries, and paid requests
 
 | Condition | Client status | Behavior |
 | --- | --- | --- |
 | Unauthenticated resource access | 401 | Generic login requirement |
-| Invalid CSRF token | 403 | Refresh-session guidance |
+| Invalid CSRF token or foreign Origin | 403 | Generic session guidance; no mutation |
 | Absent/foreign/expired search | 404 | Generic not-found response |
+| Unknown API endpoint | 404 | Public JSON not-found response without data access |
+| Request body exceeds 16 KiB in combined hosting | 413 | Puma's early response or safe Rack JSON rejection |
 | Invalid request data | 422 | Validation error |
 | Local or provider rate limit | 429 | Safe message; bounded retry interval when available |
 | Daily provider-attempt budget exhausted | 429 | Persisted safe budget error before provider I/O |
@@ -139,18 +196,27 @@ limits are not a provider quota guarantee.
 
 The limiter uses an in-memory 16 MiB cache. Counts reset on restart and are not
 shared between processes or replicas. Authenticated searches remain scoped to
-an account behind Nginx, while authentication limits depend on an accurate
-trusted-proxy/client-IP policy. Multi-replica production requires a reviewed
+an account behind either production topology. Authentication limits depend on
+an accurate trusted-proxy/client-IP policy. Multi-replica production requires a reviewed
 edge limiter or shared Redis-backed state. The MongoDB-backed daily provider
 budgets are separate and already shared between processes.
 Configure Rails' trusted proxy ranges for the real network topology; do not
 trust arbitrary forwarded headers from an exposed backend.
 
-Keep Rails and nginx private behind the intended TLS gateway. Only that gateway
-may set trusted forwarding headers; it must overwrite any supplied by clients.
+Keep Rails, and nginx when used, private behind the intended TLS gateway. Only
+that gateway may set trusted forwarding headers; it must overwrite any supplied by clients.
 Do not expose a backend port and assume `X-Forwarded-Proto` proves HTTPS. Rails
 uses the forwarded scheme for SSL handling; an incorrect configuration can
 cause redirect loops or an insecure trust boundary.
+
+`RAILS_ASSUME_SSL=true` explicitly tells Rails to treat private backend HTTP as
+HTTPS after a trusted edge has terminated TLS. It adds no encryption to that
+HTTP connection. Enable it only when the edge owns the public connection and
+prevents untrusted direct access to Rails. It must preserve the approved public
+host and overwrite client-supplied forwarding headers. Cookie security and
+Origin comparison rely on this boundary. The Render blueprint selects this
+option for its intended TLS edge; the blueprint does not prove that this edge,
+its header policy, or a public deployment has actually been configured.
 
 ## Logs, retention, and privacy
 
@@ -164,9 +230,12 @@ Mongoid and the MongoDB driver use a separate JSON logger at WARN, independent
 of Rails verbosity, to suppress debug command/document values. This does not
 control a separately operated MongoDB server's own logs.
 
-Nginx access logs use JSON fields for method, path without query string, status,
-and duration; they omit request bodies, cookies, credentials, and IP addresses.
+In the separate topology, nginx access logs use JSON fields for method, path
+without query string, status, and duration; they omit request bodies, cookies,
+credentials, and IP addresses.
 Its error log is restricted to critical errors to reduce diagnostic exposure.
+The combined topology has no nginx logger; Rails/Puma stdout and the separately
+operated TLS gateway require their own log review and retention policy.
 Parameter filtering does not sanitize every possible log source. Review
 load-balancer, MongoDB, critical error logs, and tracing/observability tools to avoid
 request bodies, credential-bearing URLs, and query strings containing user
