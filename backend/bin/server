@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+bundle exec rails db:mongoid:create_indexes
+exec bundle exec rails server -b 0.0.0.0

@@ -1,0 +1,14 @@
+defaults: &defaults
+  clients:
+    default:
+      uri: <%= ENV.fetch("MONGODB_URI") { Rails.env.production? ? raise("MONGODB_URI is required in production") : "mongodb://127.0.0.1:27017/searchscope_#{Rails.env}" }.to_json %>
+      options:
+        server_selection_timeout: 5
+        connect_timeout: 5
+
+development:
+  <<: *defaults
+test:
+  <<: *defaults
+production:
+  <<: *defaults

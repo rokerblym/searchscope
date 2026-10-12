@@ -1,0 +1,25 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+ruby "~> 3.4.0"
+
+gem "bcrypt", "~> 3.1"
+gem "json", ">= 2.19.9", "< 3.0"
+gem "mongoid", "~> 9.1"
+gem "puma", "~> 7.0"
+gem "rack-attack", "~> 6.8"
+gem "rails", "~> 8.1.0"
+
+group :development, :test do
+  gem "brakeman", "~> 8.1", require: false
+  gem "bundler-audit", "~> 0.9", require: false
+  gem "rspec-rails", "~> 8.0", require: false
+  gem "rubocop", "~> 1.92", require: false
+  gem "rubocop-rails", "~> 2.38", require: false
+  gem "rubocop-rspec", "~> 3.10", require: false
+end
+
+group :test do
+  gem "webmock", "~> 3.29", require: false
+end

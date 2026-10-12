@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1
+FROM ruby:3.4.11-slim AS build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential libyaml-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+ENV BUNDLE_PATH=/usr/local/bundle \
+    BUNDLE_FROZEN=true \
+    BUNDLE_WITHOUT=development:test
+
+COPY Gemfile Gemfile.lock ./
+# Use an injected trust bundle for cloud build proxies without disabling TLS.
+RUN --mount=type=secret,id=cloud_ca \
+    if [ -f /run/secrets/cloud_ca ]; then export SSL_CERT_FILE=/run/secrets/cloud_ca BUNDLE_SSL_CA_CERT=/run/secrets/cloud_ca; fi; \
+    bundle install --jobs 4 --retry 2 \
+    && rm -rf /usr/local/bundle/cache
+
+FROM ruby:3.4.11-slim AS runtime
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates libyaml-0-2 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 searchscope \
+    && useradd --uid 10001 --gid searchscope --no-create-home --shell /usr/sbin/nologin searchscope
+
+WORKDIR /app
+ENV RAILS_ENV=production \
+    RAILS_LOG_TO_STDOUT=true \
+    BUNDLE_PATH=/usr/local/bundle \
+    BUNDLE_FROZEN=true \
+    BUNDLE_WITHOUT=development:test \
+    PORT=3000
+
+COPY --from=build /usr/local/bundle /usr/local/bundle
+COPY --chown=searchscope:searchscope . .
+RUN mkdir -p tmp/pids log && chown -R searchscope:searchscope tmp log
+
+# MONGODB_URI, SECRET_KEY_BASE, and ALLOWED_HOSTS must be supplied at runtime.
+# Never bake credentials or SERPAPI_API_KEY into an image or a build argument.
+USER searchscope:searchscope
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ruby -rnet/http -e 'uri=URI("http://127.0.0.1:3000/api/v1/health"); request=Net::HTTP::Get.new(uri); request["Host"]=ENV.fetch("ALLOWED_HOSTS").split(",").first.strip; request["X-Forwarded-Proto"]="https"; exit(Net::HTTP.start(uri.host, uri.port) { |http| http.request(request) }.code == "200" ? 0 : 1)'
+CMD ["bin/server"]

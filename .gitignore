@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+**/node_modules/
+**/dist/
+**/coverage/
+**/.bundle/
+backend/vendor/bundle/
+backend/log/*
+!backend/log/.keep
+backend/tmp/*
+!backend/tmp/.keep
+backend/config/master.key
+backend/config/credentials/*.key
+.DS_Store

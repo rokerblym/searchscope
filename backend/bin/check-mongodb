@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative "../config/environment"
+
+result = Mongoid.default_client.database.command(ping: 1).first
+abort "MongoDB ping failed" unless result.fetch("ok") == 1
+
+puts "MongoDB ping OK (#{Rails.env})"
