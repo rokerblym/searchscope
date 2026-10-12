@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      RAILS_ENV: test
+      MONGODB_URI: mongodb://127.0.0.1:27017/searchscope_test
+      SEARCH_PROVIDER: demo
+    services:
+      mongodb:
+        image: mongo:8.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'quit(db.adminCommand({ping:1}).ok === 1 ? 0 : 1)'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4.11'
+          bundler-cache: true
+          working-directory: backend
+      - run: bundle exec rails zeitwerk:check
+      - run: bundle exec rails db:mongoid:create_indexes
+      - run: bundle exec rspec
+      - run: bundle exec rubocop
+      - run: bundle exec brakeman --no-pager --exit-on-warn --exit-on-error
+      - run: bundle exec bundle-audit check --update
+      - run: bin/check-mongodb
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run build
+
+  production-images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.component }}
+          file: ./${{ matrix.component }}/Dockerfile.production
+          push: false
+          tags: searchscope-${{ matrix.component }}:ci
+          cache-from: type=gha,scope=${{ matrix.component }}-production
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}-production

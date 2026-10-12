@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+./bin/compose build --build-arg HTTPS_PROXY --build-arg HTTP_PROXY \
+  --build-arg https_proxy --build-arg http_proxy "$@"
+# Compose retains this dependency volume across image rebuilds. Refresh it from
+# the lockfile so package changes also reach an existing development checkout.
+./bin/compose run --rm --no-deps frontend npm ci

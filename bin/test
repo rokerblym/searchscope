@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+./bin/compose up -d --wait mongodb
+./bin/compose run --rm --no-deps \
+  -e RAILS_ENV=test \
+  -e MONGODB_URI=mongodb://mongodb:27017/searchscope_test \
+  backend bundle exec rspec
+./bin/compose run --rm --no-deps \
+  -e RAILS_ENV=test \
+  -e MONGODB_URI=mongodb://mongodb:27017/searchscope_test \
+  backend bin/check-mongodb
+./bin/compose run --rm --no-deps frontend npm test
+./bin/compose run --rm --no-deps frontend npm run build -- --outDir /tmp/searchscope-build

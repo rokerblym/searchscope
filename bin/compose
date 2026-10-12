@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+# Inject existing proxy trust only into this invocation. No secret values are
+# written to the temporary YAML, application source, or container image.
+searchscope_ca_file="${SSL_CERT_FILE:-${NODE_EXTRA_CA_CERTS:-}}"
+searchscope_args=(-f docker-compose.yml)
+if [[ -n "$searchscope_ca_file" && -r "$searchscope_ca_file" ]]; then
+  export SEARCHSCOPE_BUILD_CA_FILE="$searchscope_ca_file"
+  searchscope_override="$(mktemp)"
+  trap 'rm -f "$searchscope_override"' EXIT
+  cat > "$searchscope_override" <<'YAML'
+services:
+  backend:
+    build:
+      secrets: [cloud_ca]
+    volumes:
+      - ${SEARCHSCOPE_BUILD_CA_FILE}:/run/searchscope-ca.pem:ro
+    environment:
+      SSL_CERT_FILE: /run/searchscope-ca.pem
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: localhost,127.0.0.1,mongodb,backend,frontend
+  frontend:
+    build:
+      secrets: [cloud_ca]
+    volumes:
+      - ${SEARCHSCOPE_BUILD_CA_FILE}:/run/searchscope-ca.pem:ro
+    environment:
+      NODE_EXTRA_CA_CERTS: /run/searchscope-ca.pem
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: localhost,127.0.0.1,mongodb,backend,frontend
+secrets:
+  cloud_ca:
+    file: ${SEARCHSCOPE_BUILD_CA_FILE}
+YAML
+  if command -v getent >/dev/null 2>&1; then
+    searchscope_proxy_ip="$(getent ahostsv4 proxy | awk 'NR == 1 {print $1}' || true)"
+    if [[ -n "$searchscope_proxy_ip" ]]; then
+      export SEARCHSCOPE_BUILD_PROXY_IP="$searchscope_proxy_ip"
+      # Append independent overrides instead of replacing settings above.
+      searchscope_hosts="$(mktemp)"
+      trap 'rm -f "$searchscope_override" "$searchscope_hosts"' EXIT
+      cat > "$searchscope_hosts" <<'YAML'
+services:
+  backend:
+    build:
+      extra_hosts: ["proxy=${SEARCHSCOPE_BUILD_PROXY_IP}"]
+    extra_hosts: ["proxy=${SEARCHSCOPE_BUILD_PROXY_IP}"]
+  frontend:
+    build:
+      extra_hosts: ["proxy=${SEARCHSCOPE_BUILD_PROXY_IP}"]
+    extra_hosts: ["proxy=${SEARCHSCOPE_BUILD_PROXY_IP}"]
+YAML
+      searchscope_args+=(-f "$searchscope_hosts")
+    fi
+  fi
+  searchscope_args+=(-f "$searchscope_override")
+fi
+docker compose "${searchscope_args[@]}" "$@"
