@@ -13,7 +13,7 @@ I started my bachelor's degree in Cybersecurity at Astana IT University in 2026.
 
 ## Current focus
 
-I am developing SearchScope, a Search Intelligence & API Analytics Platform, to practice Ruby on Rails, React, TypeScript and MongoDB through a concrete external API integration. It is a learning project; I will describe completed features and validation results as the implementation is reviewed.
+I am developing [SearchScope](https://github.com/rokerblym/searchscope), a Search Intelligence & API Analytics Platform, to practice Ruby on Rails, React, TypeScript and MongoDB through a concrete external API integration. Its published source and local validation documentation cover authenticated searches, persisted history, comparison and request analytics. It remains a learning project; software test results do not imply that I have mastered this stack.
 
 My main personal project is AqZhol / SafeRoute, an urban routing application using Python, FastAPI, mapping APIs and route calculations. I am preparing a clearer explanation of its architecture and current limitations.
 

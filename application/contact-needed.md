@@ -1,6 +1,6 @@
 # Candidate contact details and remaining review
 
-The candidate confirmed the name **Eldar Smagulov** and contact email **1980sdm@gmail.com**. Both are included in the CV and application draft. The contact email came from the candidate, not from a pre-existing Git identity. Public SearchScope repository publication is authorized; confirm the final remote source before submitting its link.
+The candidate confirmed the name **Eldar Smagulov** and contact email **1980sdm@gmail.com**. Both are included in the CV and application draft. The contact email came from the candidate, not from a pre-existing Git identity. SearchScope's implemented source is published at https://github.com/rokerblym/searchscope, with public access and source correspondence verified.
 
 Please provide in **ChatGPT/Codex**:
 

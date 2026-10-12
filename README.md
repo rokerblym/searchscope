@@ -1,5 +1,7 @@
 # SearchScope
 
+[![CI](https://github.com/rokerblym/searchscope/actions/workflows/ci.yml/badge.svg)](https://github.com/rokerblym/searchscope/actions/workflows/ci.yml)
+
 **Search Intelligence & API Analytics Platform**
 
 SearchScope is a personal engineering portfolio project for exploring search
@@ -208,9 +210,10 @@ Recorded commands, observed results, and remaining verification limits are in
 GitHub Actions installs frozen dependencies and runs RSpec, MongoDB checks,
 RuboCop, Brakeman, dependency audit, frontend tests/lint/format checks, and the
 frontend build, plus separate production image builds without publishing.
-The workflow file exists; remote GitHub Actions execution has
-not been confirmed. Test counts and observed failures should be recorded from
-actual executions in the final verification report, not inferred from CI YAML.
+Publication triggered GitHub Actions. See the [Actions page](https://github.com/rokerblym/searchscope/actions)
+for current workflow status and the [publication report](docs/publication-report.md)
+for recorded verification. Local test counts come from executed checks, not
+from CI YAML.
 
 For host development in **macOS Terminal**, use Ruby 3.4.11 with Bundler and
 Node.js 24. Start MongoDB from the repository root with `./bin/start mongodb`,
@@ -293,10 +296,12 @@ The [existing repository review](docs/portfolio-review.md) records read-only
 findings and conditional pin recommendations. Generated project code does not
 establish the candidate's independent proficiency.
 
-**GitHub:** review the diff, secret checks, test report, and CI workflow before
-publishing. Publishing or deployment requires the owner's approval. Application
-materials are drafts; no application email has been sent. Follow the
-[release checklist](docs/release-checklist.md) before publishing or submitting.
+The source is published at [rokerblym/searchscope](https://github.com/rokerblym/searchscope).
+The [publication report](docs/publication-report.md) records public access,
+file verification, preserved history, and observed CI status. Deployment and
+application submission require separate approval. Application materials remain
+review drafts; no application email has been sent. Follow the
+[release checklist](docs/release-checklist.md) before deploying or submitting.
 
 ## License
 

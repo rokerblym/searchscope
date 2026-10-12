@@ -84,7 +84,7 @@ Eldar confirmed the project-local Git author as `Eldar Smagulov <1980sdm@gmail.c
 
 In **GitHub**, after checking visibility and current README quality:
 
-1. Pin SearchScope after its implementation, validation report and approved publication are available.
+1. Pin [SearchScope](https://github.com/rokerblym/searchscope): its reviewed implementation, validation report, approved public source release, and successful first GitHub CI run are available. Live SerpApi searches and deployment remain unverified.
 2. Pin AqZhol / SafeRoute after its exact URL and evidence are reviewed. It is the candidate's stated main project, so give it a clear architecture overview and truthful status.
 3. Pin `cyberlearn-api` as the most straightforward reviewed API project.
 4. Pin `shopify-rag-assistant` once reproducible setup and the retrieval-only scope are clear.

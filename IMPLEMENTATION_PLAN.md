@@ -15,8 +15,10 @@ application now includes the six-page client and authenticated Rails API,
 MongoDB persistence, provider adapters, and Docker tooling. Final local
 validation executed 79 backend examples and 47 frontend tests, plus browser,
 lint, build, and security checks. Detailed evidence and outstanding checks are
-in [docs/validation-report.md](docs/validation-report.md). GitHub-hosted CI,
-paid SerpApi requests, and external deployment have not been run.
+in [docs/validation-report.md](docs/validation-report.md). Source publication
+and observed GitHub CI results are recorded in
+[docs/publication-report.md](docs/publication-report.md). Paid SerpApi requests
+and external deployment have not been performed.
 
 Verified environment: Linux x86_64, Docker 28.4.0, Compose 2.40.3, Node.js
 24.19.0, Ruby 3.4.11 and Rails 8.1.4 inside Docker. Rails 8.1 and Mongoid 9.1.1

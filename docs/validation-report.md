@@ -11,7 +11,9 @@ Only `/workspace/searchscope` was changed. The initial checkout contained a
 README and MIT license, at commit
 `fbcbae5989ca10040ee462f3e1c14af833f174da`. Existing portfolio repositories
 were inspected read-only in separate temporary checkouts; AqZhol was not changed.
-No source was pushed and no application email was sent.
+During the implementation phase, no source was pushed and no application email
+was sent. The later authorized GitHub publication is recorded in
+[publication-report.md](publication-report.md); it does not imply deployment.
 
 | Tool | Observed version / availability |
 | --- | --- |
@@ -208,15 +210,16 @@ were not counted as successful validation.
 - **Live SerpApi search:** no usable key or explicit approval for a billed
   request was supplied. Demo behavior and mocked adapter tests are verified;
   real search success is not.
-- **Remote CI:** the GitHub Actions workflow exists, but was not executed on
-  GitHub during this task. No badge or remote pass is claimed.
-- **Publication/deployment:** no push, registry publication, production
-  deployment, AWS operation, or application email was performed.
-- **Commit attribution:** the preconfigured author differs from Eldar.
-  Confirmation was requested; no contact email or commit attribution was
-  invented. Source changes remain in the working tree.
-- **Application contacts:** confirmed email, optional phone, and expected
-  graduation year remain outstanding. They are omitted from the draft CV.
+- **Remote CI:** publication triggered a real GitHub Actions run. Observed
+  remote outcomes are recorded separately in [publication-report.md](publication-report.md);
+  local test counts above are not inferred from workflow configuration.
+- **Deployment/application:** source publication is verified, but no image
+  registry publication, production deployment, AWS operation, or application
+  email was performed.
+- **Commit attribution:** Eldar confirmed `Eldar Smagulov <1980sdm@gmail.com>`;
+  release commits use that project-local identity and preserve earlier history.
+- **Application contacts:** the confirmed email is included in the regenerated
+  PDF/DOCX. Optional phone and expected graduation year remain unknown and omitted.
 - **CV verification:** the generated PDF has one page with extractable text
   and was visually inspected; DOCX opens and contains the intended content.
   Pagination in Microsoft Word was not checked.
@@ -243,6 +246,6 @@ were preserved.
 
 Saving the draft did not apply it or publish an environment snapshot. In the
 **cloud environment settings**, review and save the draft, then publish the
-environment when desired. The source changes remain local and unpublished;
-do not assume a clean remote clone contains them yet. A fresh-task restoration
-has not been validated.
+environment when desired. The implemented source is now publicly available in
+the GitHub repository. Publishing source and publishing an environment snapshot
+are separate actions; fresh-task environment restoration has not been validated.

@@ -1,8 +1,10 @@
 # Release and application checklist
 
-The application is locally implemented and tested. This document prepares
-reviewable next steps; it does not claim a published release, deployment, remote
-CI run, or sent application.
+The application is locally implemented, tested, and published in the public
+[SearchScope repository](https://github.com/rokerblym/searchscope) with the
+owner's explicit approval. See [publication-report.md](publication-report.md)
+for verified source and CI evidence. Deployment and application submission
+remain separate actions.
 
 ## Review the implementation
 
@@ -27,10 +29,10 @@ fabricate activity.
 
 The release groups the implemented work into meaningful commits:
 
-- `feat: implement authenticated search API and MongoDB persistence`
-- `feat: add search explorer, comparison, history, and analytics UI`
-- `build: add reproducible Docker setup and continuous integration checks`
-- `docs: document architecture, validation, security, and application materials`
+- `feat: add authenticated Rails search API and MongoDB persistence`
+- `feat: implement React search and analytics dashboard`
+- `build: add Docker development tools and GitHub Actions`
+- `docs: document architecture, validation and application portfolio`
 
 Review each staged group before committing. Keep tests beside the behavior
 they verify. Preserve the existing MIT license and the initial repository
@@ -51,11 +53,12 @@ history. Do not reset, overwrite another repository, or force-push.
 
 ## Publish and deploy only after owner approval
 
-The source changes currently exist in this checkout. The remote repository
-contained only the original foundation; a remote URL is not proof that these
-features are published. Request explicit approval before pushing the reviewed
-branch. After publication, inspect the actual GitHub Actions run and record
-its URL and conclusion; do not infer a pass from the workflow file.
+Eldar explicitly authorized this release. The reviewed commits were pushed as
+a fast-forward of the existing `main` branch, and anonymous public requests
+verified the source archive against the local Git objects. Existing history
+was preserved. Further releases should retain the same secret review and
+verification discipline. Inspect actual GitHub Actions outcomes rather than
+inferring a pass from the workflow file.
 
 Review `docs/deployment.md` before any deployment. Production requires TLS,
 runtime secrets, authenticated MongoDB, a trusted proxy policy, shared request
@@ -74,8 +77,8 @@ deployment or AWS experience.
 3. In **macOS Terminal** or the **Codex terminal**, regenerate the CV after
    factual edits. In **Browser** or a PDF viewer, inspect the one-page PDF;
    inspect DOCX pagination in Word or another compatible editor.
-4. In **GitHub**, confirm that the final source is accessible before adding its
-   direct URL to `application/cover-email.md`. Review proposed profile/pin edits
-   separately; existing repositories have not been modified.
+4. The verified source URL is included in `application/cover-email.md`. In
+   **GitHub**, review proposed profile/pin edits separately; existing portfolio
+   repositories have not been modified.
 5. Send the final email to `careers@serpapi.com` only after Eldar approves the
    exact text and attachments. No email has been sent by this task.
